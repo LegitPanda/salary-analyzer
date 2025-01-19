@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      width: 400px;
+      padding: 16px;
+      font-family: system-ui, -apple-system, sans-serif;
+    }
+
+    .container {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    button {
+      padding: 8px 16px;
+      background: #0070f3;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      width: 100%;
+    }
+
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+
+    .error {
+      color: #e00;
+      padding: 12px;
+      background: #fff0f0;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+
+    .content-box {
+      background: #f7f7f7;
+      padding: 12px;
+      border-radius: 4px;
+      font-size: 14px;
+      max-height: 200px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+    }
+
+    .cursor {
+      animation: blink 1s step-end infinite;
+    }
+
+    @keyframes blink {
+      from, to { opacity: 1; }
+      50% { opacity: 0; }
+    }
+
+    h1 {
+      font-size: 18px;
+      margin: auto;
+      display: flex;
+    }
+
+    h2 {
+      font-size: 16px;
+      margin: 0 0 8px 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Job Salary Analyzer</h1>
+    
+    <button id="analyze">Analyze This Job Posting's salary</button>
+    
+    <div id="error" class="error" style="display: none;"></div>
+    
+    <div id="content-section" style="display: none;">
+      <div>
+        <h2>Job Content</h2>
+        <div id="job-content" class="content-box"></div>
+      </div>
+      
+      <div id="analysis-section" style="display: none;">
+        <h2>Salary Analysis</h2>
+        <div id="analysis" class="content-box"></div>
+      </div>
+    </div>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>
