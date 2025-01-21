@@ -1,16 +1,14 @@
 let jobContent = "";
-let streaming = false;
+const APIKEY = ""
 
 function afterDOMLoaded() {
-
 	const analyzeButton = document.getElementById("analyze");
 	if (!analyzeButton) {
 		console.error("Analyze button not found");
 		return;
 	}
-  
+
 	analyzeButton.addEventListener("click", async () => {
-		console.log("Analyze button clicked"); // Log when the button is clicked
 		const errorDiv = document.getElementById("error");
 		const contentSection = document.getElementById("content-section");
 		const analysisSection = document.getElementById("analysis-section");
@@ -40,103 +38,95 @@ function afterDOMLoaded() {
 
 			console.log({ jobContent });
 
-			// Display the job content
 			jobContentDiv.textContent = jobContent;
 			contentSection.style.display = "block";
 
 			// Start the analysis
 			analysisSection.style.display = "block";
 			analysisDiv.textContent = "";
-			streaming = true;
+			const prompt = `Based on the following job posting, analyze the expected salary range. 
+Consider factors like:
+- Required experience level
+- Technical skills required
+- Job location (if mentioned)
+- Company size/industry
+- Job responsibilities
+- Similar market rates
 
-			// Create the analysis prompt
-			const prompt = `
-        Based on the following job posting, analyze the expected salary range. 
-        Consider factors like:
-        - Required experience level
-        - Technical skills required
-        - Job location (if mentioned)
-        - Company size/industry
-        - Job responsibilities
-        - Similar market rates
-        
-        Job Posting:
-        ${jobContent}
+Job Posting:
+${jobContent}
 
-        Provide a detailed salary analysis with:
-        1. Estimated salary range
-        2. Factors that influenced this estimate
-        3. Level of confidence in the estimate
-        4. Market context and considerations
-      `;
+Provide a detailed salary analysis with:
+1. Estimated salary range
+2. Factors that influenced this estimate
+3. Level of confidence in the estimate
+4. Market context and considerations`;
 
-			console.log("calling openai API");
-			// Call OpenAI API
-			const apiResponse = await fetch(
-				"https://api.openai.com/v1/chat/completions",
-				{
-					method: "POST",
-					headers: {
-						"Content-Type": "application/json",
-						Authorization: "Bearer {YOUR KEY HERE}",
-					},
-					body: JSON.stringify({
-						model: "gpt-3.5-turbo",
-						messages: [
-							{
-								role: "user",
-								content: prompt,
-							},
-						],
-						stream: true,
-					}),
-				},
-			);
-
-			console.log("API Response Status:", apiResponse.status);
-			const responseBody = await apiResponse.text();
-			console.log("API Response Body:", responseBody);
-
-			if (!apiResponse.ok) throw new Error(`Failed to analyze salary: ${responseBody}`);
-
-			const reader = apiResponse.body.getReader();
-			const decoder = new TextDecoder();
-
-			while (true) {
-				const { done, value } = await reader.read();
-				if (done) break;
-
-				const chunk = decoder.decode(value);
-				const lines = chunk.split("\n");
-				const parsedLines = lines
-					.map((line) => line.replace(/^data: /, "").trim())
-					.filter((line) => line !== "" && line !== "[DONE]")
-					.map((line) => {
-						try {
-							return JSON.parse(line);
-						} catch {
-							return null;
-						}
-					})
-					.filter(Boolean);
-
-				for (const parsed of parsedLines) {
-					if (parsed.choices[0].delta.content) {
-						analysisDiv.textContent += parsed.choices[0].delta.content;
-					}
-				}
-			}
+			apiOutputToDiv(prompt, analysisDiv);
 		} catch (err) {
 			errorDiv.textContent = `Failed to analyze job posting. Please try again. ${err.toString()}`;
 			errorDiv.style.display = "block";
-		} finally {
-			streaming = false;
 		}
 	});
-};
+}
 
 if (document.readyState === "loading") {
 	document.addEventListener("DOMContentLoaded", afterDOMLoaded);
 } else {
 	afterDOMLoaded();
 }
+
+const apiOutputToDiv = async (prompt, div) => {
+	div.textContent = "";
+
+	const apiResponse = await fetch(
+		`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:streamGenerateContent?alt=sse&key=${APIKEY}`,
+		{
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+			},
+			body: JSON.stringify({
+				contents: [
+					{
+						parts: [{ text: prompt }],
+					},
+				],
+			}),
+		},
+	);
+
+	const reader = apiResponse.body
+		?.pipeThrough(new TextDecoderStream())
+		.getReader();
+
+	if (!reader) {
+		console.log("no reader :(");
+	}
+
+	while (true) {
+		const { value, done } = await reader.read();
+		if (done) break;
+		let dataDone = false;
+		const arr = value.split("\n");
+		for (const data of arr) {
+			if (data.length < 6) continue; // ignore empty message
+			if (data.startsWith(":")) continue; // ignore sse comment message
+			if (data === "data: [DONE]") {
+				dataDone = true;
+				break;
+			}
+			const json = JSON.parse(data.substring(6));
+			const newText = json?.candidates?.[0]?.content?.parts?.[0]?.text;
+			if (newText) {
+				div.textContent += newText;
+			}
+
+			console.log({ data, json, newText, text: div.textContent });
+		}
+		if (dataDone) {
+			console.log("done");
+			break;
+		}
+	}
+};
